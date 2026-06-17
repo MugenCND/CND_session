@@ -66,7 +66,8 @@ exports.handler = async (event) => {
     const kindLabel = {
       note: 'left a timestamped note on',
       message: 'sent a message about',
-      submission: 'submitted feedback on'
+      submission: 'submitted feedback on',
+      revision: 'requested a revision on'
     }[kind] || 'updated';
 
     let to, subject, heading, link;
