@@ -1,0 +1,2260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CND Sessions — Admin</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #15120F;
+    --bg-card: #1C1812;
+    --bg-surface: #241F17;
+    --bg-surface2: #2B2419;
+    --navy: #1C1812;
+    --indigo: #A14B3F;
+    --indigo-light: #c06b5a;
+    --amber: #e8a020;
+    --amber-light: #f5b840;
+    --text: #e8e6f0;
+    --text-muted: rgba(232,230,240,0.45);
+    --border: rgba(255,255,255,0.08);
+    --border-light: rgba(255,255,255,0.04);
+    --success: #22c55e;
+    --danger: #ef4444;
+    --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+    --font-ui: 'Inter', 'Georgia', serif;
+    --font-display: 'Fraunces', serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    min-height: 100vh;
+    position: relative;
+  }
+  body::before {
+    content:"";
+    position:fixed; inset:0;
+    background:
+      radial-gradient(ellipse 80% 55% at 50% 0%, rgba(232,160,32,0.05), transparent 60%),
+      radial-gradient(ellipse 100% 90% at 50% 100%, rgba(0,0,0,0.5), transparent 60%);
+    pointer-events:none; z-index:0;
+  }
+  body::after {
+    content:"";
+    position:fixed; inset:0;
+    opacity:0.045; pointer-events:none; z-index:0;
+    mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .topbar, .layout { position:relative; z-index:1; }
+
+  /* TOP BAR */
+  .topbar {
+    background: var(--navy);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 2px solid var(--indigo);
+  }
+  #mobileMenuBtn {
+    display: none;
+    background: none; border: 1px solid var(--border);
+    color: var(--text); border-radius: 6px;
+    width: 34px; height: 34px; font-size: 16px; cursor: pointer;
+  }
+  .sidebar-backdrop {
+    display: none;
+    position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    z-index: 340;
+  }
+  .sidebar-backdrop.on { display: block; }
+  .topbar-logo {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--amber);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+  .topbar-sub {
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 2px;
+    font-family: var(--font-mono);
+  }
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    background: var(--success);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* LAYOUT */
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: calc(100vh - 53px);
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    background: var(--navy);
+    padding: 24px 0;
+    border-right: 1px solid rgba(255,255,255,0.08);
+  }
+  .sidebar-section {
+    padding: 0 16px;
+    margin-bottom: 24px;
+  }
+  .sidebar-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.3);
+    text-transform: uppercase;
+    padding: 0 8px;
+    margin-bottom: 8px;
+  }
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: rgba(255,255,255,0.6);
+    font-size: 14px;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+  }
+  .sidebar-item:hover {
+    background: rgba(255,255,255,0.06);
+    color: white;
+  }
+  .sidebar-item.active {
+    background: rgba(161,75,63,0.35);
+    color: white;
+    border-color: rgba(161,75,63,0.5);
+  }
+  .sidebar-item .icon { font-size: 16px; }
+  .badge {
+    margin-left: auto;
+    background: var(--amber);
+    color: var(--navy);
+    font-size: 10px;
+    font-weight: bold;
+    font-family: var(--font-mono);
+    padding: 2px 6px;
+    border-radius: 10px;
+  }
+
+  /* MAIN CONTENT */
+  .main {
+    padding: 28px;
+    overflow-y: auto;
+  }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .page-title {
+    font-family: var(--font-display);
+    font-size: 23px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.2px;
+  }
+  .page-sub {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    font-family: var(--font-mono);
+  }
+
+  /* BUTTONS */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+    font-family: var(--font-mono);
+    letter-spacing: 0.5px;
+  }
+  .btn-primary {
+    background: var(--indigo);
+    color: white;
+  }
+  .btn-primary:hover { background: var(--indigo-light); }
+  .btn-amber {
+    background: var(--amber);
+    color: var(--navy);
+  }
+  .btn-amber:hover { background: var(--amber-light); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { background: var(--bg-surface); color: var(--text); }
+  .btn-danger {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+  }
+  .btn-danger:hover { background: var(--danger); color: white; }
+  .btn-sm { padding: 6px 12px; font-size: 11px; }
+
+  /* CARDS */
+  .card {
+    background: linear-gradient(160deg, var(--bg-surface) 0%, var(--bg-card) 100%);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.03),
+      inset 0 0 18px rgba(0,0,0,0.28),
+      0 4px 14px rgba(0,0,0,0.3);
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--text);
+    font-family: var(--font-mono);
+    letter-spacing: 0.5px;
+  }
+
+  /* MESSAGES — session inbox list */
+  .msg-session-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 10px; border-radius: 8px;
+    cursor: pointer; margin-bottom: 4px;
+    border: 1px solid transparent;
+    transition: background .12s, border-color .12s;
+  }
+  .msg-session-row:hover { background: rgba(255,255,255,0.04); }
+  .msg-session-row.active {
+    background: rgba(232,160,32,0.1);
+    border-color: rgba(232,160,32,0.3);
+  }
+  .msg-session-row .msrow-text { flex: 1; min-width: 0; }
+  .msg-session-row .msrow-title {
+    font-size: 13px; font-weight: 600; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .msg-session-row .msrow-client {
+    font-size: 11px; color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+  .msg-session-row .msrow-badge {
+    flex-shrink: 0; min-width: 18px; height: 18px; border-radius: 9px;
+    background: var(--amber); color: var(--navy);
+    font-size: 10px; font-weight: bold; font-family: var(--font-mono);
+    display: flex; align-items: center; justify-content: center; padding: 0 5px;
+  }
+
+  /* STATS ROW */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: linear-gradient(160deg, var(--bg-surface) 0%, var(--bg-card) 100%);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.03),
+      inset 0 0 14px rgba(0,0,0,0.25);
+  }
+
+  /* PIPELINE BOARD */
+  .pipeline-board {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 900px) {
+    .pipeline-board { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 600px) {
+    .pipeline-board { grid-template-columns: 1fr; }
+  }
+  .pipeline-col { }
+  .pipeline-col-hdr {
+    font-family: var(--font-mono); font-size: 9px;
+    letter-spacing: 2px; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 8px;
+    padding-bottom: 6px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .pipeline-col-hdr .col-count {
+    background: rgba(255,255,255,.06); border-radius: 10px;
+    padding: 1px 7px; font-size: 9px; color: var(--text-muted);
+  }
+  .pipeline-card {
+    background: var(--bg-surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px; padding: 11px 12px;
+    margin-bottom: 8px; cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .pipeline-card:hover { border-color: var(--amber); background: rgba(232,160,32,0.04); }
+  .pipeline-card-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .pipeline-card-meta { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+  .pipeline-card-foot {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 8px;
+  }
+  .pipeline-rev-bar {
+    height: 3px; border-radius: 2px; background: rgba(255,255,255,.06);
+    flex: 1; margin-right: 8px; overflow: hidden;
+  }
+  .pipeline-rev-fill {
+    height: 100%; border-radius: 2px;
+    background: var(--amber);
+  }
+  .pipeline-rev-fill.maxed { background: var(--danger); }
+  .pipeline-unread {
+    font-family: var(--font-mono); font-size: 9px;
+    background: var(--amber); color: var(--navy);
+    border-radius: 8px; padding: 1px 6px; flex-shrink: 0;
+  }
+  .stat-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .stat-value {
+    font-size: 28px;
+    font-weight: bold;
+    color: var(--text);
+    line-height: 1;
+  }
+  .stat-accent { color: var(--indigo); }
+
+  /* SESSION LIST */
+  .session-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    transition: border-color 0.15s;
+  }
+  .session-row:hover { border-color: var(--indigo); }
+  .session-name {
+    font-weight: bold;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .session-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    margin-top: 2px;
+  }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: bold;
+    font-family: var(--font-mono);
+    letter-spacing: 0.5px;
+  }
+  .status-active { background: rgba(34,197,94,0.12); color: #16a34a; }
+  .status-review { background: rgba(232,160,32,0.12); color: #b45309; }
+  .status-draft { background: rgba(107,114,128,0.12); color: #6b7280; }
+
+  /* UPLOAD ZONE */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 40px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--bg-surface);
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--indigo);
+    background: rgba(161,75,63,0.05);
+  }
+  .upload-icon { font-size: 36px; margin-bottom: 12px; }
+  .upload-title {
+    font-size: 15px;
+    font-weight: bold;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  .upload-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+  #zipInput { display: none; }
+
+  /* FILE LIST */
+  .file-list {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .file-item {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .file-name-original {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    text-decoration: line-through;
+  }
+  .file-name-clean {
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--text);
+    margin-top: 2px;
+  }
+  .file-type-badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(161,75,63,0.15);
+    color: var(--indigo);
+    font-weight: bold;
+    letter-spacing: 0.5px;
+  }
+  .file-remove {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 4px;
+    border-radius: 4px;
+  }
+  .file-remove:hover { color: var(--danger); background: rgba(239,68,68,0.08); }
+
+  /* FORM ELEMENTS */
+  .form-group { margin-bottom: 16px; }
+  .form-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .form-input, .form-select, .form-textarea {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--font-ui);
+    transition: border-color 0.15s;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    outline: none;
+    border-color: var(--indigo);
+  }
+  .form-textarea { resize: vertical; min-height: 80px; }
+
+  /* GRID FORMS */
+  .form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--text);
+    margin-bottom: 20px;
+    font-family: var(--font-mono);
+    letter-spacing: 1px;
+  }
+  .modal-footer {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* TOAST */
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .toast {
+    padding: 12px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: var(--font-mono);
+    font-weight: bold;
+    animation: slideIn 0.2s ease;
+    max-width: 300px;
+  }
+  .toast-success { background: var(--navy); color: var(--success); border-left: 3px solid var(--success); }
+  .toast-error { background: var(--navy); color: var(--danger); border-left: 3px solid var(--danger); }
+  .toast-info { background: var(--navy); color: var(--amber); border-left: 3px solid var(--amber); }
+  @keyframes slideIn {
+    from { transform: translateX(20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  /* LINK DISPLAY */
+  .link-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--indigo);
+    word-break: break-all;
+  }
+  .link-copy {
+    flex-shrink: 0;
+    background: var(--indigo);
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    cursor: pointer;
+  }
+  .link-copy:hover { background: var(--indigo-light); }
+
+  /* NOTES FEED */
+  .note-item {
+    padding: 12px 14px;
+    border-left: 3px solid var(--border);
+    background: var(--bg-surface);
+    border-radius: 0 6px 6px 0;
+    margin-bottom: 8px;
+  }
+  .bug-item {
+    padding: 12px 14px;
+    border-left: 3px solid var(--danger);
+    background: rgba(239,68,68,0.05);
+    border-radius: 0 6px 6px 0;
+    margin-bottom: 8px;
+  }
+  .bug-item.resolved { border-left-color: var(--success); opacity: .55; }
+  #bugTab {
+    position: fixed; bottom: 0; left: 14px; z-index: 290;
+    background: rgba(0,0,0,.5); border: 1px solid var(--border);
+    border-bottom: none; border-radius: 8px 8px 0 0;
+    color: var(--text-muted); font-family: var(--font-mono); font-size: 9px;
+    letter-spacing: .5px; padding: 6px 10px; cursor: pointer;
+    transition: color .15s, background .15s;
+  }
+  #bugTab:hover { color: #fca5a5; background: rgba(239,68,68,.1); }
+  .bug-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.7); backdrop-filter: blur(8px);
+    z-index: 400; align-items: center; justify-content: center;
+  }
+  .bug-overlay.on { display: flex; }
+  .bug-sheet {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px; width: 100%; max-width: 420px;
+  }
+  .note-item.unread { border-left-color: var(--amber); }
+  .note-meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .note-time {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .note-track {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 2px 6px;
+    background: rgba(161,75,63,0.15);
+    color: var(--indigo);
+    border-radius: 4px;
+  }
+  .note-text { font-size: 13px; color: var(--text); }
+
+  /* PROGRESS BAR */
+  .progress-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--indigo);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+
+  /* CONFIG SECTION */
+  .config-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .config-row:last-child { border-bottom: none; }
+  .config-label { font-size: 14px; color: var(--text); font-weight: 500; }
+  .config-sub { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); margin-top: 2px; }
+
+  /* TOGGLE */
+  .toggle {
+    width: 40px; height: 22px;
+    background: var(--border);
+    border-radius: 11px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+    border: none;
+    flex-shrink: 0;
+  }
+  .toggle.on { background: var(--indigo); }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 16px; height: 16px;
+    background: white;
+    border-radius: 50%;
+    top: 3px; left: 3px;
+    transition: transform 0.2s;
+  }
+  .toggle.on::after { transform: translateX(18px); }
+
+  /* EMPTY STATE */
+  .empty-state {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text-muted);
+  }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-title { font-size: 15px; font-weight: bold; color: var(--text); margin-bottom: 6px; }
+  .empty-sub { font-size: 13px; font-family: var(--font-mono); }
+
+  /* DIVIDER */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 20px 0;
+  }
+
+  /* RENAME INDICATOR */
+  .rename-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(34,197,94,0.1);
+    color: #16a34a;
+    font-weight: bold;
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    #mobileMenuBtn { display: flex; align-items: center; justify-content: center; }
+    .layout { grid-template-columns: 1fr; }
+    .sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0; width: 240px;
+      z-index: 350; transform: translateX(-100%);
+      transition: transform .2s ease;
+      overflow-y: auto;
+    }
+    .sidebar.open { transform: translateX(0); box-shadow: 4px 0 30px rgba(0,0,0,.5); }
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .form-grid-2 { grid-template-columns: 1fr; }
+    .session-row { grid-template-columns: 1fr; gap: 8px; }
+    .msg-page-layout {
+      grid-template-columns: 1fr !important;
+      height: auto !important;
+    }
+    .msg-page-layout .card:first-child { max-height: 180px; }
+    #adminMsgThread { height: 40vh; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button id="mobileMenuBtn" onclick="toggleSidebar()">☰</button>
+    <div>
+      <div class="topbar-logo">CND Sessions</div>
+      <div class="topbar-sub">Admin Panel</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="status-dot"></div>
+    <span style="font-family:var(--font-mono);font-size:11px;color:rgba(255,255,255,0.4)">LIVE</span>
+    <button class="btn btn-amber btn-sm" onclick="openModal('newSessionModal')">+ New Session</button>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar()"></div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Navigation</div>
+      <div class="sidebar-item active" onclick="showPage('dashboard', this)">
+        <span class="icon">◈</span> Dashboard
+      </div>
+      <div class="sidebar-item" onclick="showPage('sessions', this)">
+        <span class="icon">◎</span> Sessions
+        <span class="badge" id="sessionCountBadge">0</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('upload', this)">
+        <span class="icon">⊕</span> Upload Stems
+      </div>
+      <div class="sidebar-item" onclick="showPage('notes', this)">
+        <span class="icon">◷</span> Client Notes
+        <span class="badge" id="notesBadge" style="display:none">!</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('messages', this)">
+        <span class="icon">✉</span> Messages
+        <span class="badge" id="msgUnreadBadge" style="display:none">!</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('bugs', this)">
+        <span class="icon">🐛</span> Bug Reports
+        <span class="badge" id="bugUnresolvedBadge" style="display:none">!</span>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">System</div>
+      <div class="sidebar-item" onclick="showPage('config', this)">
+        <span class="icon">⚙</span> Config
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- DASHBOARD PAGE -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Dashboard</div>
+          <div class="page-sub">Overview — <span id="dateDisplay"></span></div>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Active Sessions</div>
+          <div class="stat-value stat-accent" id="stat-active">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Pending Review</div>
+          <div class="stat-value" id="stat-review">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Sessions</div>
+          <div class="stat-value" id="stat-total">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Notes Today</div>
+          <div class="stat-value" id="stat-notes">0</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">PIPELINE</div>
+          <button class="btn btn-ghost btn-sm" onclick="showPage('sessions', document.querySelector('[onclick*=sessions]'))">View All</button>
+        </div>
+        <div id="pipelineBoard"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">RECENT CLIENT NOTES</div>
+        </div>
+        <div id="recentNotesList">
+          <div class="empty-state">
+            <div class="empty-icon">◷</div>
+            <div class="empty-title">No notes yet</div>
+            <div class="empty-sub">Client timestamped notes will appear here</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SESSIONS PAGE -->
+    <div class="page" id="page-sessions">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Sessions</div>
+          <div class="page-sub">Manage all client sessions</div>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('newSessionModal')">+ New Session</button>
+      </div>
+      <div id="sessionsList">
+        <div class="empty-state">
+          <div class="empty-icon">◎</div>
+          <div class="empty-title">No sessions yet</div>
+          <div class="empty-sub">Hit "+ New Session" to create one</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- UPLOAD PAGE -->
+    <div class="page" id="page-upload">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Upload Stems</div>
+          <div class="page-sub">Upload individual files or a ZIP</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">TARGET SESSION</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Select Session</label>
+          <select class="form-select" id="uploadTargetSession">
+            <option value="">— choose a session —</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">STEMS UPLOAD</div>
+          <span class="rename-badge">✓ AUTO-RENAME ON</span>
+        </div>
+
+        <!-- Mode toggle -->
+        <div style="display:flex;gap:6px;margin-bottom:16px;">
+          <button id="tab-files" class="btn btn-primary btn-sm" onclick="setUploadTab('files')">Individual Files</button>
+          <button id="tab-zip"   class="btn btn-ghost  btn-sm" onclick="setUploadTab('zip')">ZIP Bundle</button>
+        </div>
+
+        <!-- Individual files zone (default) -->
+        <div id="zone-files">
+          <div class="upload-zone" id="uploadZoneFiles" onclick="document.getElementById('filesInput').click()">
+            <input type="file" id="filesInput" accept="audio/*" multiple onchange="handleFilesUpload(event)">
+            <div class="upload-icon">⊕</div>
+            <div class="upload-title">Drop audio files here or click to browse</div>
+            <div class="upload-sub">WAV, MP3, AIFF — files over 9MB auto-convert to MP3</div>
+          </div>
+        </div>
+
+        <!-- ZIP zone (hidden by default) -->
+        <div id="zone-zip" style="display:none;">
+          <div class="upload-zone" id="uploadZone" onclick="document.getElementById('zipInput').click()">
+            <input type="file" id="zipInput" accept=".zip" onchange="handleZipUpload(event)">
+            <div class="upload-icon">⊕</div>
+            <div class="upload-title">Drop ZIP here or click to browse</div>
+            <div class="upload-sub">Large files inside auto-convert to MP3 on extract</div>
+          </div>
+        </div>
+
+        <div id="processingStatus" style="display:none;margin-top:14px;">
+          <div style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);margin-bottom:6px;" id="processingText">Processing...</div>
+          <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+        </div>
+
+        <div class="file-list" id="fileList"></div>
+
+        <div id="uploadActions" style="display:none;margin-top:16px;display:flex;gap:10px;align-items:center;">
+          <button class="btn btn-primary" onclick="confirmUpload()">Upload to Session</button>
+          <button class="btn btn-ghost"   onclick="clearUpload()">Clear</button>
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);" id="fileCountLabel"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- NOTES PAGE -->
+    <div class="page" id="page-notes">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Client Notes</div>
+          <div class="page-sub">Timestamped feedback from client sessions</div>
+        </div>
+        <select class="form-select" style="width:200px;" id="notesFilterSession" onchange="renderNotes()">
+          <option value="">All Sessions</option>
+        </select>
+      </div>
+      <div id="notesFeed">
+        <div class="empty-state">
+          <div class="empty-icon">◷</div>
+          <div class="empty-title">No notes yet</div>
+          <div class="empty-sub">Client notes appear here in real time</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BUGS PAGE -->
+    <div class="page" id="page-bugs">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Bug Reports</div>
+          <div class="page-sub">Glitches reported from the client player and this admin panel</div>
+        </div>
+      </div>
+      <div id="bugsFeed">
+        <div class="empty-state">
+          <div class="empty-icon">🐛</div>
+          <div class="empty-title">No reports yet</div>
+          <div class="empty-sub">Reports show up here the moment they're sent</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MESSAGES PAGE -->
+    <div class="page" id="page-messages">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Messages</div>
+          <div class="page-sub">Direct thread with the client, per session</div>
+        </div>
+      </div>
+      <div class="msg-page-layout" style="display:grid;grid-template-columns:260px 1fr;gap:16px;height:60vh;">
+        <div class="card" style="overflow-y:auto;padding:10px;">
+          <div id="msgSessionList">
+            <div class="empty-state"><div class="empty-sub">No sessions yet</div></div>
+          </div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;height:100%;">
+          <div id="adminMsgThread" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+            <div class="empty-state">
+              <div class="empty-icon">✉</div>
+              <div class="empty-title">No session selected</div>
+              <div class="empty-sub">Pick a session on the left to view its message thread</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <textarea class="form-input" id="adminMsgInput" placeholder="Reply to client…"
+              style="flex:1;resize:none;height:46px;font-family:var(--font-ui);"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();adminSendMessage();}"></textarea>
+            <button class="btn btn-amber" onclick="adminSendMessage()">Send →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONFIG PAGE -->
+    <div class="page" id="page-config">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Configuration</div>
+          <div class="page-sub">API keys and system settings</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">SUPABASE</div></div>
+        <div class="form-group">
+          <label class="form-label">Project URL</label>
+          <input class="form-input" type="text" id="cfg-supabase-url" placeholder="https://xxxx.supabase.co" value="https://kyodbslgqyrhlmbqlheo.supabase.co">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Anon Key</label>
+          <input class="form-input" type="password" id="cfg-supabase-key" placeholder="eyJ...">
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">CLOUDINARY</div></div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Cloud Name</label>
+            <input class="form-input" type="text" id="cfg-cloudinary-name" placeholder="dvutjprge" value="dvutjprge">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Upload Preset</label>
+            <input class="form-input" type="text" id="cfg-cloudinary-preset" placeholder="cnd_sessions">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">SESSION DEFAULTS</div></div>
+        <div class="config-row">
+          <div>
+            <div class="config-label">Client Link Expiry</div>
+            <div class="config-sub">Auto-expire session links after N days</div>
+          </div>
+          <select class="form-select" style="width:120px;" id="cfg-expiry">
+            <option value="7">7 days</option>
+            <option value="14" selected>14 days</option>
+            <option value="30">30 days</option>
+            <option value="0">Never</option>
+          </select>
+        </div>
+        <div class="config-row">
+          <div>
+            <div class="config-label">Note Notifications</div>
+            <div class="config-sub">Alert when client leaves a note</div>
+          </div>
+          <button class="toggle on" id="toggle-notifications" onclick="this.classList.toggle('on')"></button>
+        </div>
+        <div class="config-row">
+          <div>
+            <div class="config-label">Auto-rename Stems</div>
+            <div class="config-sub">Clean DAW export filenames on upload</div>
+          </div>
+          <button class="toggle on" id="toggle-autorename" onclick="this.classList.toggle('on')"></button>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" onclick="saveConfig()">Save Configuration</button>
+        <button class="btn btn-ghost" onclick="testConnections()">Test Connections</button>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- NEW SESSION MODAL -->
+<div class="modal-overlay" id="newSessionModal">
+  <div class="modal">
+    <div class="modal-title">NEW SESSION</div>
+    <div class="form-grid-2">
+      <div class="form-group">
+        <label class="form-label">Client Name</label>
+        <input class="form-input" type="text" id="ns-client" placeholder="e.g. Dre Washington">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Project Name</label>
+        <input class="form-input" type="text" id="ns-project" placeholder="e.g. Summer EP Mix">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Client Email (optional)</label>
+      <input class="form-input" type="email" id="ns-client-email" placeholder="e.g. dre@email.com">
+    </div>
+    <div class="form-grid-2">
+      <div class="form-group">
+        <label class="form-label">Link Expires</label>
+        <select class="form-select" id="ns-expiry">
+          <option value="7">7 days</option>
+          <option value="14" selected>14 days</option>
+          <option value="30">30 days</option>
+          <option value="0">Never</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Engineer Notes (shown to client)</label>
+      <textarea class="form-textarea" id="ns-notes" placeholder="Initial thoughts, revision notes, what to listen for..."></textarea>
+    </div>
+    <div class="form-grid-2">
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-select" id="ns-status">
+          <option value="draft">Draft</option>
+          <option value="active" selected>Active</option>
+          <option value="review">Pending Review</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Session Type</label>
+        <select class="form-select" id="ns-type">
+          <option value="mix">Mix</option>
+          <option value="master">Master</option>
+          <option value="record">Recording</option>
+          <option value="full">Full Production</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('newSessionModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createSession()">Create Session</button>
+    </div>
+  </div>
+</div>
+
+<!-- SESSION DETAIL MODAL -->
+<div class="modal-overlay" id="sessionDetailModal">
+  <div class="modal">
+    <div class="modal-title" id="sd-title">SESSION DETAIL</div>
+    <div id="sd-content"></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" id="sd-delete-btn">Delete Session</button>
+      <button class="btn btn-ghost" onclick="closeModal('sessionDetailModal')">Close</button>
+      <button class="btn btn-primary" id="sd-save-btn">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- BUG REPORT TAB -->
+<button id="bugTab" onclick="openModal('bugReportModal')">🐛 Report a glitch</button>
+
+<!-- BUG REPORT MODAL -->
+<div class="bug-overlay" id="bugReportModal">
+  <div class="bug-sheet">
+    <div class="modal-title" style="color:var(--danger);margin-bottom:14px;">Report a Glitch</div>
+    <textarea class="form-textarea" id="adminBugInput" style="height:90px;"
+      placeholder="What happened? e.g. session detail modal didn't save the revision limit…"></textarea>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('bugReportModal')">Cancel</button>
+      <button class="btn btn-danger" onclick="sendAdminBugReport()">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+// ── SUPABASE ──────────────────────────────────────────
+const SUPABASE_URL = 'https://kyodbslgqyrhlmbqlheo.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5b2Ric2xncXlyaGxtYnFsaGVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NzQxNDIsImV4cCI6MjA5MTI1MDE0Mn0.XGiX3RkOYSe5zXsP5jw-3QViC0v6Qs60OJ05-wtpaGA';
+const CLOUDINARY_NAME   = 'dvutjprge';
+const CLOUDINARY_PRESET = 'cnd_sessions'; // ← create an unsigned preset in Cloudinary dashboard
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const NOTIFY_ENDPOINT = '/.netlify/functions/notify-session';
+
+let sessions = [];
+let notes    = [];
+let adminMessages = [];
+let selectedMsgSessionId = '';
+let msgUnreadMap = {};
+let pendingFiles    = [];
+let currentDetailId = null;
+
+// ============================================================
+// RULE-BASED AUTO-RENAME
+// Cleans DAW export filenames without needing an API key
+// ============================================================
+function cleanStemName(filename) {
+  // Remove extension
+  let name = filename.replace(/\.(wav|mp3|aiff|aif|flac|ogg)$/i, '');
+
+  // Strip track numbers at start (e.g. "01_", "track01_", "track_01_")
+  name = name.replace(/^(track_?)?0*\d+[_\-\s]*/i, '');
+
+  // Remove common DAW junk suffixes
+  const junkPatterns = [
+    /_?pan[_\-]?fx/gi,
+    /_?automation/gi,
+    /_?volume[_\-]?env/gi,
+    /_?plugin[_\-]?chain/gi,
+    /_?freeze/gi,
+    /_?bounce/gi,
+    /_?export/gi,
+    /_?print/gi,
+    /_?stem/gi,
+    /_?final/gi,
+    /_?mixdown/gi,
+    /_?\d{2,}bpm/gi,
+    /_?[A-G][b#]?(maj|min|major|minor)/gi,
+    /_?\d{4}-\d{2}-\d{2}/g,
+    /_?v\d+$/gi,
+    /_?copy\d*/gi,
+    /\s+\d+$/,
+  ];
+
+  for (const pattern of junkPatterns) {
+    name = name.replace(pattern, '');
+  }
+
+  // Replace underscores/hyphens with spaces
+  name = name.replace(/[_\-]+/g, ' ').trim();
+
+  // Title case
+  name = name.replace(/\b\w/g, c => c.toUpperCase());
+
+  // Clean up double spaces
+  name = name.replace(/\s{2,}/g, ' ').trim();
+
+  // If empty after cleaning, fall back to original (without extension)
+  if (!name) {
+    name = filename.replace(/\.(wav|mp3|aiff|aif|flac|ogg)$/i, '');
+    name = name.replace(/[_\-]+/g, ' ').trim();
+  }
+
+  return name || filename;
+}
+
+// ============================================================
+// SESSION CRUD
+// ============================================================
+function generateToken() {
+  return Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
+}
+
+async function createSession() {
+  const client  = document.getElementById('ns-client').value.trim();
+  const project = document.getElementById('ns-project').value.trim();
+  if (!client || !project) { toast('Client name and project name required', 'error'); return; }
+
+  const expiryDays = parseInt(document.getElementById('ns-expiry')?.value || '14');
+  const expiresAt  = expiryDays > 0
+    ? new Date(Date.now() + expiryDays * 86400000).toISOString()
+    : null;
+
+  const payload = {
+    private_link_token: generateToken(),
+    client_name:  client,
+    title:        project,
+    client_email: document.getElementById('ns-client-email')?.value.trim() || null,
+    notes_for_client: document.getElementById('ns-notes').value.trim(),
+    status:       document.getElementById('ns-status').value,
+    session_type: document.getElementById('ns-type').value,
+    expires_at:   expiresAt,
+    revision_limit: 2,
+    revisions_used: 0,
+  };
+
+  const { data, error } = await db.from('sessions').insert(payload).select().single();
+  if (error) { toast('Error: ' + error.message, 'error'); console.error(error); return; }
+
+  sessions.unshift({ ...data, tracks: [] });
+  closeModal('newSessionModal');
+  clearNewSessionForm();
+  renderAll();
+  toast('Session created: ' + project, 'success');
+  showPage('sessions', document.querySelectorAll('.sidebar-item')[1]);
+}
+
+async function deleteSession(id) {
+  if (!confirm('Delete this session? This cannot be undone.')) return;
+  await db.from('tracks').delete().eq('session_id', id);
+  await db.from('session_notes').delete().eq('session_id', id);
+  await db.from('session_submissions').delete().eq('session_id', id);
+  const { error } = await db.from('sessions').delete().eq('id', id);
+  if (error) { toast('Delete failed: ' + error.message, 'error'); return; }
+  sessions = sessions.filter(s => s.id !== id);
+  closeModal('sessionDetailModal');
+  renderAll();
+  toast('Session deleted', 'info');
+}
+
+function clearNewSessionForm() {
+  ['ns-client','ns-project','ns-notes'].forEach(id => document.getElementById(id).value = '');
+  const email = document.getElementById('ns-client-email');
+  if (email) email.value = '';
+  document.getElementById('ns-status').value = 'active';
+  document.getElementById('ns-type').value = 'mix';
+}
+
+// ============================================================
+// UPLOAD / RENAME
+// ============================================================
+const AUDIO_EXTS = ['wav','mp3','aiff','aif','flac','ogg','m4a'];
+const MP3_THRESHOLD = 9 * 1024 * 1024; // files larger than this get converted
+const MP3_BITRATE   = 192; // kbps — good quality for stem review
+
+// ── MP3 CONVERSION ENGINE ──────────────────────────────────
+let convertAudioCtx = null;
+function getConvertCtx() {
+  if (!convertAudioCtx) convertAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return convertAudioCtx;
+}
+
+function floatTo16BitPCM(input) {
+  const out = new Int16Array(input.length);
+  for (let i = 0; i < input.length; i++) {
+    const s = Math.max(-1, Math.min(1, input[i]));
+    out[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  return out;
+}
+
+// Converts a large audio File/Blob to an MP3 Blob using lamejs.
+// onProgress(pct 0-1) is called periodically; yields to UI between chunks.
+async function convertToMp3(file, onProgress) {
+  const ctx = getConvertCtx();
+  const arrayBuffer = await file.arrayBuffer();
+  const audioBuf = await ctx.decodeAudioData(arrayBuffer);
+
+  const channels   = Math.min(audioBuf.numberOfChannels, 2);
+  const sampleRate = audioBuf.sampleRate;
+  const left  = floatTo16BitPCM(audioBuf.getChannelData(0));
+  const right = channels > 1 ? floatTo16BitPCM(audioBuf.getChannelData(1)) : left;
+
+  const encoder = new lamejs.Mp3Encoder(channels, sampleRate, MP3_BITRATE);
+  const blockSize = 1152;
+  const mp3Chunks = [];
+  const total = left.length;
+
+  for (let i = 0; i < total; i += blockSize) {
+    const lChunk = left.subarray(i, i + blockSize);
+    const buf = channels > 1
+      ? encoder.encodeBuffer(lChunk, right.subarray(i, i + blockSize))
+      : encoder.encodeBuffer(lChunk);
+    if (buf.length > 0) mp3Chunks.push(new Uint8Array(buf));
+
+    if (i % (blockSize * 300) === 0) {
+      if (onProgress) onProgress(i / total);
+      await new Promise(r => setTimeout(r, 0)); // yield to keep UI responsive
+    }
+  }
+  const tail = encoder.flush();
+  if (tail.length > 0) mp3Chunks.push(new Uint8Array(tail));
+  if (onProgress) onProgress(1);
+
+  const blob = new Blob(mp3Chunks, { type: 'audio/mp3' });
+  const newName = file.name.replace(/\.[^.]+$/, '') + '.mp3';
+  return new File([blob], newName, { type: 'audio/mp3' });
+}
+
+function fmtBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024*1024) return (bytes/1024).toFixed(0) + ' KB';
+  return (bytes/(1024*1024)).toFixed(1) + ' MB';
+}
+
+// Takes raw File objects, converts any oversized ones to MP3, and returns
+// pendingFiles-shaped objects. Updates the processing UI while running.
+async function prepareFiles(rawFiles) {
+  const status = document.getElementById('processingStatus');
+  const text   = document.getElementById('processingText');
+  const fill   = document.getElementById('progressFill');
+  status.style.display = 'block';
+
+  const out = [];
+  for (let i = 0; i < rawFiles.length; i++) {
+    const f = rawFiles[i];
+    let blob = f;
+    let type = f.name.split('.').pop().toUpperCase();
+
+    if (f.size > MP3_THRESHOLD) {
+      text.textContent = `Converting ${f.name} (${fmtBytes(f.size)}) to MP3...`;
+      try {
+        const before = f.size;
+        blob = await convertToMp3(f, pct => {
+          fill.style.width = ((i + pct) / rawFiles.length * 100) + '%';
+        });
+        type = 'MP3';
+        console.log(f.name + ' — compressed ' + fmtBytes(before) + ' → ' + fmtBytes(blob.size));
+      } catch (e) {
+        console.error('MP3 conversion failed for', f.name, ':', e.message);
+        toast(`Conversion failed for ${f.name}, uploading original`, 'error');
+      }
+    }
+
+    out.push({
+      original: f.name,
+      clean: cleanStemName(f.name),
+      type,
+      blob,
+      originalSize: f.size,
+      finalSize: blob.size,
+    });
+    fill.style.width = ((i+1) / rawFiles.length * 100) + '%';
+  }
+
+  text.textContent = `Ready — ${out.length} file(s)`;
+  return out;
+}
+
+function setUploadTab(tab) {
+  document.getElementById('zone-files').style.display = tab === 'files' ? 'block' : 'none';
+  document.getElementById('zone-zip').style.display   = tab === 'zip'   ? 'block' : 'none';
+  document.getElementById('tab-files').className = 'btn btn-sm ' + (tab === 'files' ? 'btn-primary' : 'btn-ghost');
+  document.getElementById('tab-zip').className   = 'btn btn-sm ' + (tab === 'zip'   ? 'btn-primary' : 'btn-ghost');
+  clearUpload();
+}
+
+// ── INDIVIDUAL FILES ──────────────────────────────────────
+async function handleFilesUpload(event) {
+  const files = [...event.target.files].filter(f => {
+    const ext = f.name.split('.').pop().toLowerCase();
+    return AUDIO_EXTS.includes(ext);
+  });
+  if (!files.length) { toast('No audio files selected', 'error'); return; }
+
+  pendingFiles = await prepareFiles(files);
+
+  renderFileList();
+  document.getElementById('uploadActions').style.display = 'flex';
+  document.getElementById('fileCountLabel').textContent  = pendingFiles.length + ' files ready';
+}
+
+// drag-drop on individual files zone
+const zoneFiles = document.getElementById('uploadZoneFiles');
+if (zoneFiles) {
+  zoneFiles.addEventListener('dragover', e => { e.preventDefault(); zoneFiles.classList.add('drag-over'); });
+  zoneFiles.addEventListener('dragleave', () => zoneFiles.classList.remove('drag-over'));
+  zoneFiles.addEventListener('drop', async e => {
+    e.preventDefault(); zoneFiles.classList.remove('drag-over');
+    const files = [...e.dataTransfer.files].filter(f => AUDIO_EXTS.includes(f.name.split('.').pop().toLowerCase()));
+    if (!files.length) { toast('Drop audio files only (WAV, MP3, AIFF…)', 'error'); return; }
+    pendingFiles = await prepareFiles(files);
+    renderFileList();
+    document.getElementById('uploadActions').style.display = 'flex';
+    document.getElementById('fileCountLabel').textContent  = pendingFiles.length + ' files ready';
+  });
+}
+
+// ── ZIP ───────────────────────────────────────────────────
+function handleZipUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  processZip(file);
+}
+
+const uploadZone = document.getElementById('uploadZone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.zip')) processZip(file);
+  else toast('Please drop a .zip file', 'error');
+});
+
+async function processZip(file) {
+  const status = document.getElementById('processingStatus');
+  const text = document.getElementById('processingText');
+  const fill = document.getElementById('progressFill');
+  const fileList = document.getElementById('fileList');
+  const actions = document.getElementById('uploadActions');
+
+  status.style.display = 'block';
+  fileList.innerHTML = '';
+  pendingFiles = [];
+
+  const audioExts = ['wav','mp3','aiff','aif','flac','ogg','m4a'];
+
+  try {
+    const zip = await JSZip.loadAsync(file);
+    const audioFiles = Object.values(zip.files).filter(f => {
+      const ext = f.name.split('.').pop().toLowerCase();
+      return !f.dir && audioExts.includes(ext) && !f.name.startsWith('__MACOSX');
+    });
+
+    if (!audioFiles.length) { toast('No audio files found in ZIP', 'error'); status.style.display = 'none'; return; }
+
+    text.textContent = `Extracting ${audioFiles.length} file(s)...`;
+    fill.style.width = '10%';
+
+    // Extract all files to real File objects
+    const extracted = [];
+    for (let i = 0; i < audioFiles.length; i++) {
+      const f = audioFiles[i];
+      const originalName = f.name.split('/').pop();
+      const blob = await f.async('blob');
+      extracted.push(new File([blob], originalName, { type: blob.type }));
+      fill.style.width = (10 + (i / audioFiles.length) * 20) + '%';
+    }
+
+    // Store original ZIP in Cloudinary for client WAV download (if under 200MB)
+    if (file.size < 200 * 1024 * 1024) {
+      text.textContent = 'Storing original ZIP for client download…';
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('upload_preset', CLOUDINARY_PRESET);
+        fd.append('folder', 'cnd-sessions/originals');
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_NAME}/raw/upload`, {
+          method: 'POST', body: fd
+        });
+        const data = await res.json();
+        if (data.secure_url) {
+          // Store on the current session — we don't know which session yet,
+          // so save for confirmUpload to attach when it runs
+          window._pendingOriginalZip = data.secure_url;
+          console.log('Original ZIP stored:', data.secure_url);
+        }
+      } catch(e) {
+        console.warn('Could not store original ZIP:', e.message);
+      }
+    } else {
+      console.log('ZIP too large to store original (>200MB), skipping');
+    }
+
+    // Convert oversized files to MP3, build pendingFiles
+    pendingFiles = await prepareFiles(extracted);
+
+    renderFileList();
+    actions.style.display = 'flex';
+    document.getElementById('fileCountLabel').textContent = pendingFiles.length + ' files ready';
+
+  } catch (err) {
+    toast('Error reading ZIP: ' + err.message, 'error');
+    status.style.display = 'none';
+  }
+}
+
+function renderFileList() {
+  const list = document.getElementById('fileList');
+  list.innerHTML = pendingFiles.map((f, i) => {
+    const wasConverted = f.originalSize && f.finalSize && f.originalSize !== f.finalSize;
+    const sizeLabel = wasConverted
+      ? `${fmtBytes(f.originalSize)} → ${fmtBytes(f.finalSize)}`
+      : (f.finalSize ? fmtBytes(f.finalSize) : '');
+    return `
+    <div class="file-item" id="file-item-${i}">
+      <div>
+        <div class="file-name-original">${f.original}${sizeLabel ? ' · ' + sizeLabel : ''}</div>
+        <input style="border:none;background:transparent;font-weight:bold;font-size:13px;color:var(--text);width:100%;padding:0;margin-top:2px;font-family:var(--font-ui);"
+          value="${f.clean}" id="fname-${i}" onchange="pendingFiles[${i}].clean = this.value">
+      </div>
+      <span class="file-type-badge">${f.type}${wasConverted ? ' ✓' : ''}</span>
+      <button class="file-remove" onclick="removeFile(${i})">✕</button>
+    </div>
+  `;
+  }).join('');
+}
+
+function removeFile(i) {
+  pendingFiles.splice(i, 1);
+  renderFileList();
+  document.getElementById('fileCountLabel').textContent = pendingFiles.length + ' files ready';
+  if (!pendingFiles.length) clearUpload();
+}
+
+function clearUpload() {
+  pendingFiles = [];
+  document.getElementById('fileList').innerHTML = '';
+  document.getElementById('uploadActions').style.display = 'none';
+  document.getElementById('processingStatus').style.display = 'none';
+  document.getElementById('zipInput').value = '';
+}
+
+async function uploadToCloudinary(blob, sessionId, name) {
+  const fd = new FormData();
+  fd.append('file', blob, name);
+  fd.append('upload_preset', CLOUDINARY_PRESET);
+  fd.append('folder', `cnd-sessions/${sessionId}`);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_NAME}/auto/upload`, {
+    method: 'POST', body: fd
+  });
+  const data = await res.json();
+  if (!data.secure_url) throw new Error(data.error?.message || 'Cloudinary upload failed');
+  return { url: data.secure_url, publicId: data.public_id, duration: data.duration || null };
+}
+
+async function confirmUpload() {
+  const sessionId = document.getElementById('uploadTargetSession').value;
+  if (!sessionId) { toast('Select a target session first', 'error'); return; }
+  if (!pendingFiles.length) { toast('No files to upload', 'error'); return; }
+
+  const session = sessions.find(s => s.id === sessionId);
+  if (!session) return;
+
+  toast(`Uploading ${pendingFiles.length} file(s) to Cloudinary...`, 'info');
+  let position = session.tracks.length;
+  let uploaded = 0;
+
+  for (const f of pendingFiles) {
+    try {
+      document.getElementById('processingText').textContent = `Uploading ${f.clean}...`;
+      const cld = await uploadToCloudinary(f.blob, sessionId, f.clean + '.' + f.type.toLowerCase());
+      const { data, error } = await db.from('tracks').insert({
+        session_id:        sessionId,
+        name:              f.clean,
+        type:              f.type,
+        cloudinary_url:    cld.url,
+        cloudinary_public_id: cld.publicId,
+        duration_seconds:  cld.duration,
+        order_index:       position++,
+      }).select().single();
+      if (error) throw new Error(error.message);
+      session.tracks.push(data);
+      uploaded++;
+    } catch(e) {
+      toast(`Failed: ${f.clean} — ${e.message}`, 'error');
+      console.error(e);
+    }
+  }
+
+  // Attach original ZIP URL to session if one was stored
+  if (window._pendingOriginalZip) {
+    await db.from('sessions').update({ original_zip_url: window._pendingOriginalZip }).eq('id', sessionId);
+    session.original_zip_url = window._pendingOriginalZip;
+    window._pendingOriginalZip = null;
+    console.log('Original ZIP URL saved to session');
+  }
+
+  clearUpload();
+  renderAll();
+  toast(`${uploaded}/${pendingFiles.length} tracks uploaded to "${session.title}"`, uploaded > 0 ? 'success' : 'error');
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function renderAll() {
+  renderStats();
+  renderSessionsList();
+  renderPipelineBoard();
+  renderNotes();
+  renderUploadSessionSelect();
+  renderNotesFilterSelect();
+  renderMsgSessionList();
+  loadUnreadMessageCount();
+  updateBadges();
+}
+
+function renderStats() {
+  document.getElementById('stat-active').textContent = sessions.filter(s => s.status === 'active').length;
+  document.getElementById('stat-review').textContent = sessions.filter(s => s.status === 'review').length;
+  document.getElementById('stat-total').textContent = sessions.length;
+  const today = new Date().toDateString();
+  document.getElementById('stat-notes').textContent = notes.filter(n => new Date(n.createdAt).toDateString() === today).length;
+}
+
+function renderSessionsList() {
+  const el = document.getElementById('sessionsList');
+  if (!sessions.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">◎</div><div class="empty-title">No sessions yet</div><div class="empty-sub">Hit "+ New Session" to create one</div></div>`;
+    return;
+  }
+  el.innerHTML = sessions.map(s => `
+    <div class="session-row" onclick="openSessionDetail('${s.id}')">
+      <div>
+        <div class="session-name">${s.title}</div>
+        <div class="session-meta">${s.client_name} · ${(s.session_type||'mix').toUpperCase()} · ${(s.tracks||[]).length} tracks · ${formatDate(s.created_at)}
+          ${(s.revisions_used||0) >= (s.revision_limit??2) ? `<span style="color:#ff9a3d;margin-left:6px;">· ${s.revisions_used}/${s.revision_limit??2} revisions used</span>` : ''}
+        </div>
+      </div>
+      <span class="status-pill status-${s.status}">${statusLabel(s.status)}</span>
+      <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();copyLink('${s.private_link_token}')">Copy Link</button>
+      <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteSession('${s.id}')">Delete</button>
+    </div>
+  `).join('');
+}
+
+function renderPipelineBoard() {
+  const el = document.getElementById('pipelineBoard');
+  if (!el) return;
+  if (!sessions.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">◎</div><div class="empty-title">No sessions yet</div><div class="empty-sub">Create your first session to get started</div></div>`;
+    return;
+  }
+  const cols = [
+    { status: 'active',   label: 'In Progress',    accent: 'var(--amber)' },
+    { status: 'review',   label: 'Pending Review',  accent: '#ff9a3d' },
+    { status: 'draft',    label: 'Draft',           accent: 'var(--text-muted)' },
+    { status: 'delivered',label: 'Delivered',       accent: 'var(--success)' },
+  ];
+  el.className = 'pipeline-board';
+  el.innerHTML = cols.map(col => {
+    const colSessions = sessions.filter(s => s.status === col.status);
+    const cards = colSessions.map(s => {
+      const used = s.revisions_used || 0;
+      const limit = s.revision_limit ?? 2;
+      const revPct = limit > 0 ? Math.min(1, used / limit) * 100 : 0;
+      const maxed = used >= limit && limit > 0;
+      const unread = msgUnreadMap[s.id] || 0;
+      return `
+        <div class="pipeline-card" onclick="openSessionDetail('${s.id}')">
+          <div class="pipeline-card-title">${s.title}</div>
+          <div class="pipeline-card-meta">${s.client_name || '—'} · ${(s.tracks||[]).length} tracks</div>
+          <div class="pipeline-card-foot">
+            <div class="pipeline-rev-bar" title="${used}/${limit} revisions">
+              <div class="pipeline-rev-fill ${maxed?'maxed':''}" style="width:${revPct}%"></div>
+            </div>
+            ${unread > 0 ? `<span class="pipeline-unread">✉ ${unread}</span>` : ''}
+          </div>
+        </div>`;
+    }).join('') || `<div style="font-family:var(--font-mono);font-size:10px;color:var(--border-light);padding:8px 0;">Empty</div>`;
+    return `
+      <div class="pipeline-col">
+        <div class="pipeline-col-hdr" style="color:${col.accent}">
+          ${col.label}
+          <span class="col-count">${colSessions.length}</span>
+        </div>
+        ${cards}
+      </div>`;
+  }).join('');
+}
+
+function renderNotes() {
+  const filter = document.getElementById('notesFilterSession')?.value || '';
+  let filtered = filter ? notes.filter(n => n.sessionId === filter) : notes;
+  filtered = filtered.slice().reverse();
+
+  const el = document.getElementById('notesFeed');
+  const recent = document.getElementById('recentNotesList');
+
+  if (!filtered.length) {
+    const empty = `<div class="empty-state"><div class="empty-icon">◷</div><div class="empty-title">No notes yet</div><div class="empty-sub">Client notes appear here in real time</div></div>`;
+    el.innerHTML = empty;
+    if (recent) recent.innerHTML = empty;
+    return;
+  }
+
+  const noteCard = n => `
+    <div class="note-item ${n.read ? '' : 'unread'}" style="${n.type==='submission'?'border-left-color:var(--amber);':''}${n.type==='revision'?'border-left-color:#ff9a3d;background:rgba(232,131,10,0.05);':''}">
+      <div class="note-meta">
+        <span class="note-time">${formatDate(n.createdAt)}</span>
+        <span class="note-track">${n.track || 'General'}</span>
+        ${n.timestamp ? `<span class="note-time">@ ${n.timestamp}</span>` : ''}
+        ${n.clientName ? `<span class="note-time" style="color:var(--amber);opacity:.7;">${n.clientName}</span>` : ''}
+      </div>
+      <div class="note-text">${n.text}</div>
+    </div>`;
+
+  el.innerHTML = filtered.map(noteCard).join('');
+  if (recent) recent.innerHTML = filtered.slice(0, 3).map(n => `
+    <div class="note-item ${n.read ? '' : 'unread'}">
+      <div class="note-meta">
+        <span class="note-time">${n.session || ''} · ${formatDate(n.createdAt)}</span>
+        ${n.clientName ? `<span class="note-time" style="color:var(--amber);opacity:.7;">${n.clientName}</span>` : ''}
+      </div>
+      <div class="note-text">${n.text}</div>
+    </div>
+  `).join('');
+}
+
+function renderUploadSessionSelect() {
+  const sel = document.getElementById('uploadTargetSession');
+  sel.innerHTML = '<option value="">— choose a session —</option>' +
+    sessions.map(s => `<option value="${s.id}">${s.title} (${s.client_name})</option>`).join('');
+}
+
+function renderNotesFilterSelect() {
+  const sel = document.getElementById('notesFilterSession');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All Sessions</option>' +
+    sessions.map(s => `<option value="${s.id}">${s.title}</option>`).join('');
+  sel.value = current;
+}
+
+function renderMsgSessionList() {
+  const el = document.getElementById('msgSessionList');
+  if (!el) return;
+  if (!sessions.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-sub">No sessions yet</div></div>`;
+    return;
+  }
+  // Sessions with unread messages float to the top, then keep existing order
+  const sorted = sessions.slice().sort((a, b) => (msgUnreadMap[b.id] || 0) - (msgUnreadMap[a.id] || 0));
+  el.innerHTML = sorted.map(s => {
+    const unread = msgUnreadMap[s.id] || 0;
+    const active = s.id === selectedMsgSessionId;
+    return `
+      <div class="msg-session-row ${active ? 'active' : ''}" onclick="adminLoadMessages('${s.id}')">
+        <div class="msrow-text">
+          <div class="msrow-title">${s.title}</div>
+          <div class="msrow-client">${s.client_name || ''}</div>
+        </div>
+        ${unread > 0 ? `<div class="msrow-badge">${unread}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+async function loadUnreadMessageCount() {
+  const { data, error } = await db.from('session_messages')
+    .select('session_id')
+    .eq('sender', 'client').is('read_at', null);
+  if (error) { console.error('unread count error:', error.message); return; }
+  msgUnreadMap = {};
+  (data || []).forEach(m => { msgUnreadMap[m.session_id] = (msgUnreadMap[m.session_id] || 0) + 1; });
+  const total = Object.values(msgUnreadMap).reduce((a, b) => a + b, 0);
+  const badge = document.getElementById('msgUnreadBadge');
+  if (badge) {
+    if (total > 0) { badge.textContent = total; badge.style.display = 'inline'; }
+    else badge.style.display = 'none';
+  }
+  renderMsgSessionList();
+}
+
+async function adminLoadMessages(sessionId) {
+  if (sessionId !== undefined) selectedMsgSessionId = sessionId;
+  renderMsgSessionList();
+  const el = document.getElementById('adminMsgThread');
+  if (!selectedMsgSessionId) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">✉</div><div class="empty-title">No session selected</div><div class="empty-sub">Pick a session on the left to view its message thread</div></div>`;
+    return;
+  }
+  const { data, error } = await db.from('session_messages')
+    .select('*').eq('session_id', selectedMsgSessionId).order('created_at', { ascending: true });
+  if (error) { console.error('adminLoadMessages error:', error.message); return; }
+  adminMessages = data || [];
+  adminRenderMessages();
+  // mark client messages as read now that the engineer is viewing the thread
+  const unreadIds = adminMessages.filter(m => m.sender === 'client' && !m.read_at).map(m => m.id);
+  if (unreadIds.length) {
+    await db.from('session_messages').update({ read_at: new Date().toISOString() }).in('id', unreadIds);
+    loadUnreadMessageCount();
+  }
+}
+
+function adminRenderMessages() {
+  const el = document.getElementById('adminMsgThread');
+  if (!adminMessages.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">✉</div><div class="empty-title">No messages yet</div><div class="empty-sub">Replies you send here go straight to the client's inbox</div></div>`;
+    return;
+  }
+  el.innerHTML = adminMessages.map(m => {
+    const mine = m.sender === 'engineer';
+    return `<div style="align-self:${mine?'flex-end':'flex-start'};max-width:75%;padding:9px 12px;border-radius:10px;font-size:13px;line-height:1.5;
+      background:${mine?'rgba(232,160,32,0.12)':'rgba(161,75,63,0.18)'};border:1px solid ${mine?'rgba(232,160,32,0.3)':'rgba(161,75,63,0.35)'};">
+      <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:.5px;margin-bottom:3px;text-transform:uppercase;">
+        ${mine ? 'You' : (m.sender_name || 'Client')} · ${formatDate(m.created_at)}
+      </div>
+      <div>${(m.message||'').replace(/</g,'&lt;')}</div>
+    </div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+// ============================================================
+// BUG REPORTS
+// ============================================================
+let bugReports = [];
+
+async function sendAdminBugReport() {
+  const inp = document.getElementById('adminBugInput');
+  const txt = inp.value.trim();
+  if (!txt) return;
+  const { error } = await db.from('bug_reports').insert({
+    session_id: null, page: 'admin', message: txt, user_agent: navigator.userAgent
+  });
+  if (error) { toast('Report failed: ' + error.message, 'error'); return; }
+  inp.value = '';
+  closeModal('bugReportModal');
+  toast('Bug reported 🐛', 'success');
+  loadBugReports();
+}
+
+async function loadBugReports() {
+  const { data, error } = await db.from('bug_reports')
+    .select('*').order('created_at', { ascending: false }).limit(100);
+  if (error) { console.error('loadBugReports error:', error.message); return; }
+  bugReports = data || [];
+  renderBugReports();
+  const openCount = bugReports.filter(b => b.status !== 'resolved').length;
+  const badge = document.getElementById('bugUnresolvedBadge');
+  if (badge) { badge.textContent = openCount; badge.style.display = openCount > 0 ? 'inline' : 'none'; }
+}
+
+function renderBugReports() {
+  const el = document.getElementById('bugsFeed');
+  if (!el) return;
+  if (!bugReports.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🐛</div><div class="empty-title">No reports yet</div><div class="empty-sub">Reports show up here the moment they're sent</div></div>`;
+    return;
+  }
+  const sessionMap = Object.fromEntries(sessions.map(s => [s.id, s.title]));
+  el.innerHTML = bugReports.map(b => `
+    <div class="bug-item ${b.status === 'resolved' ? 'resolved' : ''}">
+      <div class="note-meta" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <span class="note-time">${formatDate(b.created_at)} · ${b.page === 'admin' ? 'Admin panel' : (sessionMap[b.session_id] || 'Client player')}</span>
+        <div style="display:flex;gap:6px;">
+          ${b.status === 'resolved'
+            ? `<button class="btn btn-ghost btn-sm" onclick="toggleBugStatus('${b.id}','open')">Reopen</button>`
+            : `<button class="btn btn-amber btn-sm" onclick="toggleBugStatus('${b.id}','resolved')">Mark Resolved</button>`}
+          <button class="btn btn-danger btn-sm" onclick="deleteBugReport('${b.id}')">Delete</button>
+        </div>
+      </div>
+      <div class="note-text">${b.message}</div>
+    </div>`).join('');
+}
+
+async function toggleBugStatus(id, status) {
+  const { error } = await db.from('bug_reports').update({ status }).eq('id', id);
+  if (error) { toast('Update failed: ' + error.message, 'error'); return; }
+  loadBugReports();
+}
+
+async function deleteBugReport(id) {
+  const { error } = await db.from('bug_reports').delete().eq('id', id);
+  if (error) { toast('Delete failed: ' + error.message, 'error'); return; }
+  loadBugReports();
+}
+
+async function adminSendMessage() {
+  const inp = document.getElementById('adminMsgInput');
+  const txt = inp.value.trim();
+  if (!txt) return;
+  if (!selectedMsgSessionId) { toast('Select a session first', 'error'); return; }
+  const { error } = await db.from('session_messages').insert({
+    session_id: selectedMsgSessionId, sender: 'engineer', sender_name: 'Engineer', message: txt
+  });
+  if (error) { toast('Send failed: ' + error.message, 'error'); return; }
+  inp.value = '';
+  fetch(NOTIFY_ENDPOINT, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: selectedMsgSessionId, kind: 'message', text: txt, fromName: 'Your engineer', direction: 'to_client' })
+  }).catch(e => console.error('notify failed:', e));
+  adminLoadMessages();
+}
+
+function updateBadges() {
+  document.getElementById('sessionCountBadge').textContent = sessions.length;
+  const unread = notes.filter(n => !n.read).length;
+  const badge = document.getElementById('notesBadge');
+  badge.style.display = unread > 0 ? 'inline' : 'none';
+}
+
+// ============================================================
+// SESSION DETAIL MODAL
+// ============================================================
+function openSessionDetail(id) {
+  const s = sessions.find(s => s.id === id);
+  if (!s) return;
+  currentDetailId = id;
+
+  document.getElementById('sd-title').textContent = s.title.toUpperCase();
+  document.getElementById('sd-content').innerHTML = `
+    <div class="form-grid-2">
+      <div class="form-group">
+        <label class="form-label">Client</label>
+        <input class="form-input" id="sd-client" value="${s.client_name||''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Project</label>
+        <input class="form-input" id="sd-project" value="${s.title||''}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Engineer Notes</label>
+      <textarea class="form-textarea" id="sd-notes">${s.notes_for_client || ''}</textarea>
+    </div>
+    <div class="form-grid-2">
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-select" id="sd-status">
+          <option value="draft" ${s.status==='draft'?'selected':''}>Draft</option>
+          <option value="active" ${s.status==='active'?'selected':''}>Active</option>
+          <option value="review" ${s.status==='review'?'selected':''}>Pending Review</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Free Revision Limit</label>
+        <input class="form-input" id="sd-revision-limit" type="number" min="0" value="${s.revision_limit ?? 2}">
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-top:6px;">
+          Used so far: <strong style="color:${(s.revisions_used||0) >= (s.revision_limit??2) ? 'var(--danger)' : 'var(--amber)'}">${s.revisions_used||0}</strong> of ${s.revision_limit ?? 2}
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Client Link</label>
+      <div class="link-box">
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">cndsessions.netlify.app/sessions-client.html?token=${s.private_link_token}</span>
+        <button class="link-copy" onclick="copyLink('${s.private_link_token}')">Copy</button>
+      </div>
+      ${s.expires_at ? `<div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-top:6px;">Expires: ${formatDate(s.expires_at)}</div>` : ''}
+    </div>
+    <div style="margin-top:8px;">
+      <label class="form-label">Tracks (${(s.tracks||[]).length})</label>
+      ${(s.tracks||[]).length ? s.tracks.map(t => `
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-surface);border-radius:5px;margin-bottom:6px;">
+          <span class="file-type-badge">${t.type||'STEM'}</span>
+          <span style="font-size:13px;flex:1;">${t.name}</span>
+          <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">${formatDate(t.created_at)}</span>
+        </div>
+      `).join('') : '<div style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);padding:8px 0;">No tracks uploaded yet</div>'}
+    </div>
+  `;
+
+  document.getElementById('sd-save-btn').onclick = () => saveSessionDetail(id);
+  document.getElementById('sd-delete-btn').onclick = () => deleteSession(id);
+
+  openModal('sessionDetailModal');
+}
+
+async function saveSessionDetail(id) {
+  const s = sessions.find(s => s.id === id);
+  if (!s) return;
+  const updates = {
+    client_name:      document.getElementById('sd-client').value.trim(),
+    title:            document.getElementById('sd-project').value.trim(),
+    notes_for_client: document.getElementById('sd-notes').value.trim(),
+    status:           document.getElementById('sd-status').value,
+    revision_limit:   parseInt(document.getElementById('sd-revision-limit').value, 10) || 0,
+  };
+  const { error } = await db.from('sessions').update(updates).eq('id', id);
+  if (error) { toast('Update failed: ' + error.message, 'error'); return; }
+  Object.assign(s, updates);
+  closeModal('sessionDetailModal');
+  renderAll();
+  toast('Session updated', 'success');
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function copyLink(token) {
+  const url = `https://cndsessions.netlify.app/sessions-client.html?token=${token}`;
+  navigator.clipboard.writeText(url).then(() => toast('Link copied ✓', 'success')).catch(() => {
+    prompt('Copy this link:', url);
+  });
+}
+
+function statusLabel(s) {
+  return { active: '● Active', review: '◎ Review', draft: '○ Draft' }[s] || s;
+}
+
+function formatDate(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function showPage(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  if (el) el.classList.add('active');
+  if (window.innerWidth <= 768) closeSidebar();
+}
+
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const bd = document.getElementById('sidebarBackdrop');
+  const opening = !sb.classList.contains('open');
+  sb.classList.toggle('open', opening);
+  bd.classList.toggle('on', opening);
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarBackdrop').classList.remove('on');
+}
+
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+function toast(msg, type = 'info') {
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.textContent = msg;
+  document.getElementById('toastContainer').appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+function saveConfig() {
+  const cfg = {
+    expiry:        document.getElementById('cfg-expiry')?.value || '14',
+    notifications: document.getElementById('toggle-notifications')?.classList.contains('on') ?? true,
+    autorename:    document.getElementById('toggle-autorename')?.classList.contains('on') ?? true,
+  };
+  localStorage.setItem('cnd_config', JSON.stringify(cfg));
+  toast('Config saved', 'success');
+}
+
+function loadConfig() {
+  try {
+    const cfg = JSON.parse(localStorage.getItem('cnd_config') || '{}');
+    if (cfg.expiry && document.getElementById('cfg-expiry')) document.getElementById('cfg-expiry').value = cfg.expiry;
+    if (cfg.notifications === false) document.getElementById('toggle-notifications')?.classList.remove('on');
+    if (cfg.autorename === false) document.getElementById('toggle-autorename')?.classList.remove('on');
+  } catch(e) {}
+}
+
+async function testConnections() {
+  toast('Testing Supabase...', 'info');
+  const { error } = await db.from('sessions').select('id').limit(1);
+  if (error) { toast('Supabase: ' + error.message, 'error'); }
+  else { toast('Supabase: connected ✓', 'success'); }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+document.getElementById('dateDisplay').textContent = new Date().toLocaleDateString('en-US', {
+  weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+});
+loadConfig();
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
+
+// Load sessions from Supabase on init
+async function initAdmin() {
+  try {
+    // Fetch sessions + tracks
+    const { data, error } = await db
+      .from('sessions')
+      .select('id,title,client_name,notes_for_client,status,session_type,private_link_token,original_zip_url,expires_at,created_at,revision_limit,revisions_used,tracks(id,name,type,cloudinary_url,cloudinary_public_id,duration_seconds,order_index)')
+      .order('created_at', { ascending: false });
+    if (error) { console.error('Session fetch error:', error.message); }
+    else {
+      sessions = (data || []).map(s => ({
+        ...s,
+        tracks: (s.tracks || []).sort((a,b) => (a.order_index||0)-(b.order_index||0))
+      }));
+      console.log('Loaded', sessions.length, 'sessions');
+    }
+
+    // Fetch client notes
+    const { data: noteRows } = await db
+      .from('session_notes')
+      .select('id,session_id,track_id,text,client_name,timestamp_sec,created_at')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (noteRows) {
+      const sessionMap = Object.fromEntries(sessions.map(s=>[s.id,s.title]));
+      notes = noteRows.map(n => ({
+        id:        n.id,
+        sessionId: n.session_id,
+        session:   sessionMap[n.session_id] || '',
+        track:     n.track_id || 'General',
+        text:      n.text,
+        clientName:n.client_name || '',
+        timestamp: n.timestamp_sec ? fmtTime(n.timestamp_sec) : null,
+        createdAt: n.created_at,
+        read:      true,
+        type:      'note'
+      }));
+      console.log('Loaded', notes.length, 'client notes');
+    }
+
+    // Fetch feedback submissions
+    const { data: subRows } = await db
+      .from('session_submissions')
+      .select('id,session_id,text,created_at,is_revision')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (subRows) {
+      const sessionMap = Object.fromEntries(sessions.map(s=>[s.id,s.title]));
+      const subs = subRows.map(s => ({
+        id:        s.id,
+        sessionId: s.session_id,
+        session:   sessionMap[s.session_id] || '',
+        track:     s.is_revision ? '🔄 Revision' : '★ Feedback',
+        text:      s.text,
+        timestamp: null,
+        createdAt: s.created_at,
+        read:      false,
+        type:      s.is_revision ? 'revision' : 'submission'
+      }));
+      // Merge submissions into notes array (sort by date)
+      notes = [...notes, ...subs].sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt));
+      console.log('Loaded', subRows.length, 'feedback submissions');
+    }
+
+  } catch(e) {
+    console.error('initAdmin failed:', e.message);
+  }
+  renderAll();
+  loadBugReports();
+}
+
+function fmtTime(sec){
+  const m=Math.floor(sec/60), s=Math.floor(sec%60);
+  return m+':'+(s<10?'0':'')+s;
+}
+initAdmin();
+
+</script>
+
+</body>
+</html>
