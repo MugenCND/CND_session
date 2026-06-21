@@ -93,6 +93,17 @@ exports.handler = async (event) => {
       return { statusCode: 502, body: 'Email send failed' };
     }
 
+    // Fire a push notification too, but only toward the engineer's devices —
+    // clients don't have the admin PWA installed, so to_client never pushes.
+    if (direction === 'to_engineer') {
+      const siteUrl = process.env.URL || process.env.DEPLOY_PRIME_URL || '';
+      fetch(`${siteUrl}/.netlify/functions/send-push`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: subject, body: text, url: ADMIN_PORTAL_URL })
+      }).catch(e => console.error('push trigger failed:', e));
+    }
+
     return { statusCode: 200, body: JSON.stringify({ sent: true }) };
   } catch (err) {
     console.error('notify-session error:', err);
