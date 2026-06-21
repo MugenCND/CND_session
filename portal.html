@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>CND Sessions — Sign In</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2716%27 fill=%27%2315120F%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2711%27 fill=%27none%27 stroke=%27%23D4920A%27 stroke-width=%272%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%273%27 fill=%27%23D4920A%27/%3E%3C/svg%3E">
+<link rel="manifest" href="/manifest-client.json">
+<link rel="apple-touch-icon" href="/icons/client-apple-touch-icon.png">
+<meta name="theme-color" content="#0B0C0E">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CND Sessions">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg:        #0B0C0E;
+  --bg1:       #111316;
+  --bg2:       #17191D;
+  --bg3:       #1E2024;
+  --amber:     #e8830a;
+  --amber-grad: linear-gradient(135deg, #ffb15c 0%, #e8830a 55%, #c45f00 100%);
+  --indigo:    #A14B3F;
+  --cream:     #e9e7e3;
+  --muted:     rgba(233,231,227,0.45);
+  --dimmer:    rgba(233,231,227,0.2);
+  --border:    rgba(255,255,255,0.08);
+  --success:   #27ae60;
+  --danger:    #c0392b;
+  --mono:      'JetBrains Mono', 'Courier New', monospace;
+  --sans:      'Inter', -apple-system, sans-serif;
+  --display:   'Fraunces', serif;
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+button { -webkit-appearance:none; appearance:none; font-family:inherit; color:inherit; touch-action:manipulation; }
+html,body { background:var(--bg); color:var(--cream); font-family:var(--sans); min-height:100vh; position:relative; overflow-x:hidden; }
+body::before {
+  content:""; position:fixed; inset:0;
+  background:radial-gradient(ellipse 80% 55% at 50% 0%, rgba(232,131,10,0.05), transparent 60%),
+             radial-gradient(ellipse 100% 90% at 50% 100%, rgba(0,0,0,0.5), transparent 60%);
+  pointer-events:none; z-index:0;
+}
+.wrap { position:relative; z-index:1; max-width:480px; margin:0 auto; padding:60px 20px 40px; min-height:100vh; }
+
+.brand { text-align:center; margin-bottom:48px; }
+.brand-mark { font-family:var(--mono); font-size:11px; letter-spacing:4px; color:var(--amber); margin-bottom:8px; }
+.brand-title { font-family:var(--display); font-size:26px; font-weight:600; }
+
+/* EMAIL GATE */
+#emailGate { display:block; }
+.gate-card {
+  background:linear-gradient(160deg, var(--bg3) 0%, var(--bg1) 100%);
+  border:1px solid var(--border); border-radius:14px; padding:28px 24px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.03), 0 10px 30px rgba(0,0,0,0.4);
+}
+.gate-label { font-size:13px; color:var(--muted); margin-bottom:14px; line-height:1.6; }
+.gate-input {
+  width:100%; background:rgba(0,0,0,.3); border:1px solid var(--border);
+  border-radius:8px; padding:12px 14px; color:var(--cream);
+  font-size:14px; font-family:var(--sans); margin-bottom:12px;
+}
+.gate-input:focus { outline:none; border-color:rgba(232,131,10,.5); }
+.gate-btn {
+  width:100%; background:var(--amber-grad); color:#1a0d00;
+  border:none; border-radius:8px; padding:13px; font-size:14px; font-weight:600;
+  cursor:pointer; box-shadow:0 2px 14px rgba(232,131,10,.3);
+}
+.gate-btn:active { transform:scale(.98); }
+.gate-msg { font-family:var(--mono); font-size:11px; text-align:center; margin-top:14px; min-height:14px; }
+.gate-msg.ok { color:var(--success); }
+.gate-msg.err { color:#e08a7f; }
+
+/* SESSION LIST */
+#sessionList { display:none; }
+.sl-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+.sl-greeting { font-size:13px; color:var(--muted); }
+.sl-signout { font-family:var(--mono); font-size:10px; color:var(--dimmer); background:none; border:none; cursor:pointer; letter-spacing:1px; }
+.sl-signout:hover { color:var(--muted); }
+
+.sess-card {
+  display:block; text-decoration:none; color:inherit;
+  background:linear-gradient(160deg, var(--bg3) 0%, var(--bg1) 100%);
+  border:1px solid var(--border); border-radius:10px;
+  padding:16px; margin-bottom:10px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.03), 0 4px 14px rgba(0,0,0,0.3);
+}
+.sess-title { font-family:var(--display); font-size:16px; font-weight:600; margin-bottom:4px; }
+.sess-meta { font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:.5px; }
+.sess-status {
+  display:inline-block; font-family:var(--mono); font-size:9px;
+  letter-spacing:1px; padding:3px 8px; border-radius:10px; margin-top:8px;
+}
+.status-active { background:rgba(232,131,10,.12); color:var(--amber); }
+.status-review { background:rgba(255,154,61,.12); color:#ff9a3d; }
+.status-draft { background:rgba(255,255,255,.06); color:var(--muted); }
+.status-delivered { background:rgba(39,174,96,.12); color:var(--success); }
+
+.empty-state { text-align:center; padding:40px 20px; color:var(--dimmer); font-size:13px; }
+.loading-state { text-align:center; padding:40px 20px; color:var(--muted); font-family:var(--mono); font-size:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="brand-mark">CRACKLE &amp; DUST</div>
+    <div class="brand-title">CND Sessions</div>
+  </div>
+
+  <div id="emailGate">
+    <div class="gate-card">
+      <div class="gate-label">Enter your email to see all your sessions in one place.</div>
+      <input class="gate-input" id="gateEmail" type="email" placeholder="you@example.com"
+        onkeydown="if(event.key==='Enter')sendMagicLink()">
+      <button class="gate-btn" id="gateBtn" onclick="sendMagicLink()">Send me a link</button>
+      <div class="gate-msg" id="gateMsg"></div>
+    </div>
+  </div>
+
+  <div id="sessionList">
+    <div class="sl-head">
+      <div class="sl-greeting" id="slGreeting"></div>
+      <button class="sl-signout" onclick="signOut()">SIGN OUT</button>
+    </div>
+    <div id="slBody"><div class="loading-state">Loading your sessions…</div></div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL  = 'https://kyodbslgqyrhlmbqlheo.supabase.co';
+const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5b2Ric2xncXlyaGxtYnFsaGVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NzQxNDIsImV4cCI6MjA5MTI1MDE0Mn0.XGiX3RkOYSe5zXsP5jw-3QViC0v6Qs60OJ05-wtpaGA';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const PORTAL_STORAGE_KEY = 'cnd_portal_session';
+
+function statusLabel(s){
+  return { active:'In Progress', review:'Pending Review', draft:'Draft', delivered:'Delivered' }[s] || s;
+}
+function formatDate(iso){
+  if(!iso) return '';
+  return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+
+async function sendMagicLink(){
+  const emailInp = document.getElementById('gateEmail');
+  const email = emailInp.value.trim();
+  const msg = document.getElementById('gateMsg');
+  const btn = document.getElementById('gateBtn');
+  msg.textContent=''; msg.className='gate-msg';
+  if(!email || !email.includes('@')){ msg.textContent='Enter a valid email'; msg.classList.add('err'); return; }
+
+  btn.disabled=true; btn.textContent='Sending…';
+  try{
+    const res = await fetch('/.netlify/functions/request-magic-link', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ email })
+    });
+    if(!res.ok) throw new Error('Send failed');
+    msg.textContent='Check your email for a sign-in link ✓';
+    msg.classList.add('ok');
+  }catch(e){
+    msg.textContent='Something went wrong — try again';
+    msg.classList.add('err');
+  }
+  btn.disabled=false; btn.textContent='Send me a link';
+}
+
+function showSessionList(){
+  document.getElementById('emailGate').style.display='none';
+  document.getElementById('sessionList').style.display='block';
+}
+
+async function loadSessions(clientId, email, name){
+  document.getElementById('slGreeting').textContent = name || email;
+  const { data, error } = await db.from('sessions')
+    .select('id,title,status,created_at,private_link_token')
+    .eq('client_id', clientId)
+    .order('created_at',{ascending:false});
+
+  const body = document.getElementById('slBody');
+  if(error){ body.innerHTML='<div class="empty-state">Could not load sessions — try refreshing.</div>'; console.error(error); return; }
+  if(!data || !data.length){ body.innerHTML='<div class="empty-state">No sessions linked to this email yet.</div>'; return; }
+
+  body.innerHTML = data.map(s=>`
+    <a class="sess-card" href="/sessions-client.html?token=${s.private_link_token}">
+      <div class="sess-title">${s.title}</div>
+      <div class="sess-meta">${formatDate(s.created_at)}</div>
+      <div class="sess-status status-${s.status}">${statusLabel(s.status)}</div>
+    </a>`).join('');
+}
+
+function signOut(){
+  localStorage.removeItem(PORTAL_STORAGE_KEY);
+  document.getElementById('sessionList').style.display='none';
+  document.getElementById('emailGate').style.display='block';
+}
+
+async function verifyMagicToken(magicToken){
+  document.getElementById('slBody').innerHTML='<div class="loading-state">Signing you in…</div>';
+  showSessionList();
+  try{
+    const res = await fetch('/.netlify/functions/verify-magic-link', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ magicToken })
+    });
+    const data = await res.json();
+    if(!res.ok){
+      document.getElementById('sessionList').style.display='none';
+      document.getElementById('emailGate').style.display='block';
+      document.getElementById('gateMsg').textContent = data.error || 'Link invalid or expired — request a new one';
+      document.getElementById('gateMsg').className='gate-msg err';
+      return;
+    }
+    localStorage.setItem(PORTAL_STORAGE_KEY, JSON.stringify(data));
+    // clean the ?magic= param out of the URL
+    history.replaceState({}, '', window.location.pathname);
+    loadSessions(data.clientId, data.email, data.name);
+  }catch(e){
+    console.error('verify failed:',e);
+  }
+}
+
+(function boot(){
+  const params = new URLSearchParams(window.location.search);
+  const magic = params.get('magic');
+  if(magic){
+    verifyMagicToken(magic);
+    return;
+  }
+  const saved = localStorage.getItem(PORTAL_STORAGE_KEY);
+  if(saved){
+    try{
+      const data = JSON.parse(saved);
+      showSessionList();
+      loadSessions(data.clientId, data.email, data.name);
+    }catch(e){ localStorage.removeItem(PORTAL_STORAGE_KEY); }
+  }
+})();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('/sw.js').catch(e=>console.warn('SW registration failed:',e));
+  });
+}
+</script>
+</body>
+</html>
